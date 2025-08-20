@@ -2,7 +2,6 @@
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import * as React from "react";
 import { useState } from "react";
 import { Holiday } from "@/types/holiday";
 import { Slider } from "@/components/ui/slider";
@@ -18,9 +17,12 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [age, setAge] = useState<number>(8);
+  const [emailValid, setEmailValid] = useState<boolean | undefined>(undefined);
   const [photo, setPhoto] = useState<File | null>(null);
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [timeSlot, setTimeSlot] = useState<Date | undefined>(undefined);
+
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   const currentHolidays = holidays.filter(
     (holiday) => holiday.date.toDateString() === date?.toDateString(),
@@ -29,7 +31,7 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
 
   function getAvailableTimeSlots(date: Date): Date[] {
     // mock function to get available time slots for a given date
-    return Array.from({ length: 8 }, (_, i) => {
+    return Array.from({ length: 7 }, (_, i) => {
       const hour = i / 2 + 12;
       if (
         hour % 2 === 0 ||
@@ -48,19 +50,73 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
     }).filter((slot) => slot !== null);
   }
 
-  async function handleSubmit() {
-    console.log({
-      firstName,
-      lastName,
-      email,
-      age,
-      photo,
-      date,
-      timeSlot,
-    });
+  function validateEmail(email: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
-  return (
+  async function handleSubmit() {
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !emailValid ||
+      !age ||
+      !photo ||
+      !date ||
+      !timeSlot
+    ) {
+      alert("Please fill in all fields correctly."); // fallback alert as user is not even able to submit the form
+      return;
+    }
+    const formData = new FormData();
+    formData.append("firstName", firstName);
+    formData.append("lastName", lastName);
+    formData.append("email", email);
+    formData.append("age", age.toString());
+    formData.append("photo", photo);
+    formData.append("date", date.toISOString());
+    formData.append("timeSlot", timeSlot.toISOString());
+    try {
+      const response = await fetch("https://letsworkout.pl/submit", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error("Failed to submit the form");
+      }
+      setFormSubmitted(true);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      alert("There was an error submitting the form. Please try again.");
+    }
+  }
+
+  return formSubmitted ? (
+    <div className="flex flex-col items-center gap-4">
+      <h1 className="text-2xl font-medium">Thank you!</h1>
+      <p className="text-muted-foreground text-center text-lg">
+        Your application has been submitted successfully.
+      </p>
+      <Button
+        className="w-full sm:w-auto"
+        variant="cta"
+        size="xl"
+        onClick={() => {
+          setFormSubmitted(false);
+          setFirstName("");
+          setLastName("");
+          setEmail("");
+          setAge(8);
+          setEmailValid(undefined);
+          setPhoto(null);
+          setDate(undefined);
+          setTimeSlot(undefined);
+        }}
+      >
+        Submit Another Application
+      </Button>
+    </div>
+  ) : (
     <form
       className="flex w-full flex-col gap-12"
       onSubmit={(e) => {
@@ -95,11 +151,50 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
             <Label htmlFor="email">Email Address</Label>
             <Input
               id="email"
-              type="email"
-              className="w-full"
+              type="text"
+              className={cn(
+                `w-full`,
+                emailValid === false &&
+                  "border-destructive focus-visible:border-destructive border-2 bg-[#FEECEC] focus-visible:ring-0",
+              )}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                setEmail(value);
+                if (value && validateEmail(value)) {
+                  setEmailValid(true);
+                } else {
+                  setEmailValid(undefined);
+                }
+              }}
+              onBlur={() => {
+                if (email && !validateEmail(email)) {
+                  setEmailValid(false);
+                } else if (email) {
+                  setEmailValid(true);
+                }
+              }}
+              autoComplete="email"
             />
+            {emailValid === false && (
+              <div className="flex gap-2 text-sm leading-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="my-1"
+                >
+                  <path
+                    d="M8 0C6.41775 0 4.87104 0.469192 3.55544 1.34824C2.23985 2.22729 1.21447 3.47672 0.608967 4.93853C0.00346629 6.40034 -0.15496 8.00887 0.153721 9.56072C0.462403 11.1126 1.22433 12.538 2.34315 13.6569C3.46197 14.7757 4.88743 15.5376 6.43928 15.8463C7.99113 16.155 9.59966 15.9965 11.0615 15.391C12.5233 14.7855 13.7727 13.7602 14.6518 12.4446C15.5308 11.129 16 9.58225 16 8C16 5.87827 15.1571 3.84344 13.6569 2.34315C12.1566 0.842855 10.1217 0 8 0ZM7.00667 4C7.00667 3.73478 7.11203 3.48043 7.29956 3.29289C7.4871 3.10536 7.74145 3 8.00667 3C8.27189 3 8.52624 3.10536 8.71378 3.29289C8.90131 3.48043 9.00667 3.73478 9.00667 4V8.59333C9.00667 8.72465 8.9808 8.85469 8.93055 8.97602C8.88029 9.09734 8.80664 9.20758 8.71378 9.30044C8.62092 9.3933 8.51068 9.46696 8.38935 9.51721C8.26803 9.56747 8.13799 9.59333 8.00667 9.59333C7.87535 9.59333 7.74531 9.56747 7.62399 9.51721C7.50266 9.46696 7.39242 9.3933 7.29956 9.30044C7.2067 9.20758 7.13305 9.09734 7.08279 8.97602C7.03254 8.85469 7.00667 8.72465 7.00667 8.59333V4ZM8 13C7.77321 13 7.55152 12.9327 7.36295 12.8068C7.17438 12.6808 7.02741 12.5017 6.94062 12.2921C6.85383 12.0826 6.83113 11.8521 6.87537 11.6296C6.91961 11.4072 7.02882 11.2029 7.18919 11.0425C7.34955 10.8822 7.55387 10.7729 7.7763 10.7287C7.99873 10.6845 8.22929 10.7072 8.43881 10.794C8.64834 10.8807 8.82743 11.0277 8.95342 11.2163C9.07942 11.4048 9.14667 11.6265 9.14667 11.8533C9.14667 12.1574 9.02586 12.4491 8.81082 12.6641C8.59578 12.8792 8.30412 13 8 13Z"
+                    fill="#ED4545"
+                  />
+                </svg>
+                Please use correct formatting. <br />
+                Example: address@email.com
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="age">Age</Label>
@@ -132,7 +227,10 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
             <Calendar
               mode="single"
               selected={date}
-              onSelect={setDate}
+              onSelect={(date) => {
+                setDate(date);
+                setTimeSlot(undefined);
+              }}
               showOutsideDays={false}
               weekStartsOn={1}
               components={{
@@ -190,7 +288,7 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
             {availableTimeSlots.length > 0 && (
               <>
                 <Label htmlFor="timeSlot">Time</Label>
-                <div className="flex flex-row flex-wrap gap-2 sm:flex-col">
+                <div className="grid grid-cols-4 gap-2 sm:max-h-67.5 sm:grid-cols-1 sm:overflow-y-auto">
                   {availableTimeSlots.map((slot, index) => (
                     <Toggle
                       key={index}
@@ -206,6 +304,8 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
                             : slot,
                         );
                       }}
+                      size="lg"
+                      className="min-h-10 w-full"
                     >
                       {slot.toLocaleTimeString([], {
                         hour: "2-digit",
@@ -223,14 +323,18 @@ export default function MainForm({ holidays }: { holidays: Holiday[] }) {
       <Button
         type="submit"
         className="w-full sm:w-auto"
+        variant="cta"
+        size="xl"
         disabled={
           !firstName ||
           !lastName ||
           !email ||
+          !emailValid ||
           !age ||
           !photo ||
           !date ||
-          !timeSlot
+          !timeSlot ||
+          formSubmitted
         }
       >
         Send Application

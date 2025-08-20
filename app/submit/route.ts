@@ -1,4 +1,4 @@
-export async function POST(request: Request) {
+export async function POST() {
   return Response.json({
     success: true,
     message: "Form submitted successfully!",
