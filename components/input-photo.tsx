@@ -46,7 +46,10 @@ export function InputPhoto({
             className,
           )}
         >
-          <span className="truncate text-base font-medium" title={photo.name}>
+          <span
+            className="truncate text-base font-medium text-ellipsis"
+            title={photo.name}
+          >
             {photo.name}
           </span>
           <Button
